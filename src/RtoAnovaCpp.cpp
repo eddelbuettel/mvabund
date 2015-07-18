@@ -3,19 +3,22 @@
 // Author: Yi Wang (yi dot wang at unsw dot edu dot au)
 // Last modified: 20-April-2010
 
-#include <Rcpp.h>
+#include <RcppGSL.h>
 extern "C"{
 #include "resampTest.h"
 #include "time.h"
 }
 
-RcppExport SEXP RtoAnovaCpp(SEXP params, SEXP Ysexp, SEXP Xsexp,  
-                             SEXP INsexp, SEXP bIDsexp ) 
+// [[Rcpp::export]]
+Rcpp::List RtoAnovaCpp(Rcpp::List rparam,
+                       RcppGSL::matrix<double> Y, // SEXP Ysexp,
+                       RcppGSL::matrix<double> X, // SEXP Xsexp,
+                       RcppGSL::matrix<double> isXvarIn,
+                       SEXP bIDsexp) 
 {
     using namespace Rcpp;
 
-    // Get parameters in params.
-    List rparam(params);
+    // Get parameters in rparam.
     // pass parameters
     mv_Method mm;	
 //    mm.tol = as<double>(rparam["tol"]);
@@ -32,54 +35,15 @@ RcppExport SEXP RtoAnovaCpp(SEXP params, SEXP Ysexp, SEXP Xsexp,
 // for debug
 //    Rprintf("Input param arguments:\n tol=%g, nboot=%d, cor_type=%d, shrink_param=%g, test_type=%d, resamp=%d, reprand=%d\n",mm.tol, mm.nboot, mm.corr, mm.shrink_param, mm.test, mm.resamp, mm.reprand);
 
-    NumericMatrix Yr(Ysexp);
-    NumericMatrix Xr(Xsexp);
-    IntegerMatrix INr(INsexp);
-    unsigned int nRows = Yr.nrow();
-    unsigned int nVars = Yr.ncol();
-    unsigned int nParam = Xr.ncol();
-    unsigned int nModels = INr.nrow();
+    unsigned int nRows = Y.nrow();
+    unsigned int nVars = Y.ncol();
+    unsigned int nParam = X.ncol();
+    unsigned int nModels = isXvarIn.nrow();
 // for debug
 //    Rprintf("nRows=%d, nVars=%d, nParam=%d\n", nRows, nVars, nParam);
 
     // Rcpp -> gsl
     unsigned int i, j, k;
-    gsl_matrix *X = gsl_matrix_alloc(nRows, nParam);        
-    gsl_matrix *Y = gsl_matrix_alloc(nRows, nVars);
-    gsl_matrix *isXvarIn = gsl_matrix_alloc(nModels, nParam);
-
-//  Must be careful about using std::copy for matrix. The following direct
-//  use is not doing right - row elements are copied to columns. Need to
-//  fix it later on. 
-//    std::copy( Yr.begin(), Yr.end(), Y->data );
-//    std::copy( Xr.begin(), Xr.end(), X->data );
-//    std::copy( INr.begin(), INr.end(), isXvarIn->data );
-
-    for (i=0; i<nRows; i++){
-        for (j=0; j<nVars; j++) {
-            gsl_matrix_set(Y, i, j, Yr(i, j));
-//            Rprintf("%d ", (int)gsl_matrix_get(Y, i, j));
-        }
-//        Rprintf("\t");
-//
-        for (k=0; k<nParam; k++){
-	    gsl_matrix_set(X, i, k, Xr(i, k));
-//	    Rprintf("%.2f ", gsl_matrix_get(X, i, k));
-	}
-//	Rprintf("\n");
-    }
-       
-    for (i=0; i<nModels; i++){
-        for (j=0; j<nParam; j++){
-            gsl_matrix_set(isXvarIn, i, j, INr(i, j));
-//            Rprintf("%d ", (int)gsl_matrix_get(isXvarIn, i, j));
-        }
-//	Rprintf("\n");
-    }
-
-    // do stuff	
-//    clock_t clk_start, clk_end;
-//    clk_start = clock();
 
 // initialize anova class
     AnovaTest anova(&mm, Y, X, isXvarIn);
@@ -112,46 +76,26 @@ RcppExport SEXP RtoAnovaCpp(SEXP params, SEXP Ysexp, SEXP Xsexp,
     anova.resampTest();
 //    anova.display();
 
-//    clk_end = clock();
-//    double dif = (double)(clk_end - clk_start)/(double)(CLOCKS_PER_SEC);
-//    Rprintf("Time elapsed: %d seconds\n", (unsigned int) dif);
 
     // Wrap the gsl objects with Rcpp 
     NumericVector Vec_mul(anova.multstat, anova.multstat+nModels-1);
     NumericVector Vec_Pm(anova.Pmultstat, anova.Pmultstat+nModels-1);
     NumericVector Vec_df(anova.dfDiff, anova.dfDiff+nModels-1);
     
-    NumericMatrix Mat_statj(nModels-1, nVars);
-    NumericMatrix Mat_Pstatj(nModels-1, nVars);
-    for (i=0; i<nModels-1; i++)
-    for (j=0; j<nVars; j++){
-        Mat_statj(i, j) = gsl_matrix_get(anova.statj, i, j);
-	Mat_Pstatj(i, j) = gsl_matrix_get(anova.Pstatj, i, j);        
-    }
-//    double *uj = gsl_matrix_ptr(anova.statj, 0, 0);
-//    double *pj = gsl_matrix_ptr(anova.Pstatj, 0, 0);
-//    std::copy(uj, uj+nVars*(nModels-1), Mat_statj.begin());
-//    std::copy(pj, pj+nVars*(nModels-1), Mat_Pstatj.begin());
-
-    unsigned int nSamp = anova.nSamp;
-
+    RcppGSL::matrix<double> Mat_statj(anova.statj);
+    RcppGSL::matrix<double> Mat_Pstatj(anova.Pstatj);
+    
     // Rcpp -> R
-    List rs = List::create(
-         _["multstat" ] = Vec_mul,
-         _["Pmultstat"] = Vec_Pm,
-	 _["dfDiff"   ] = Vec_df,
-	 _["statj"    ] = Mat_statj,
-	 _["Pstatj"   ] = Mat_Pstatj,
-	 _["nSamp"    ] = nSamp
-    );
+    List rs = List::create(_["multstat" ] = Vec_mul,
+                           _["Pmultstat"] = Vec_Pm,
+                           _["dfDiff"   ] = Vec_df,
+                           _["statj"    ] = Mat_statj,
+                           _["Pstatj"   ] = Mat_Pstatj,
+                           _["nSamp"    ] = anova.nSamp);
 
     // clear objects
-    anova.releaseTest(); 
-    gsl_matrix_free(Y);
-    gsl_matrix_free(X);
-    gsl_matrix_free(isXvarIn);
-
-
+    anova.releaseTest();
+    
     return rs;
 }
 
