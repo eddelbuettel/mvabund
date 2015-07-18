@@ -2,6 +2,9 @@
 //
 // Author: Yi Wang (yi dot wang at unsw dot edu dot au)
 // Last modified: 20-April-2010
+//
+// Rcpp/RcppGSL changes by Dirk Eddelbuettel, July 2015
+
 
 #include <RcppGSL.h>
 extern "C"{
@@ -51,51 +54,40 @@ Rcpp::List RtoAnovaCpp(Rcpp::List rparam,
 // Resampling indices
     if ( !Rf_isNumeric(bIDsexp) || !Rf_isMatrix(bIDsexp) ) {
 //      Rprintf("Calc bootID on the fly.\n");
-     }
-    else {
+    } else {
         if ( mm.resamp == SCOREBOOT ) {
             NumericMatrix bIDr(bIDsexp);
             mm.nboot = bIDr.nrow();	   
             anova.bootID = gsl_matrix_alloc(mm.nboot, nRows);
 //	    std::copy ( bIDr.begin(), bIDr.end(), anova.bootID->data);
 	    for (i=0; i<mm.nboot; i++)
-	    for (j=0; j<nRows; j++)
+              for (j=0; j<nRows; j++)
                 gsl_matrix_set(anova.bootID, i, j, bIDr(i, j));
-	 }
-	else{
+	 } else{
 	    IntegerMatrix bIDr(bIDsexp);
             mm.nboot = bIDr.nrow();	   
 	    anova.bootID = gsl_matrix_alloc(mm.nboot, nRows);
 	    // integer -> double
 	    for (i=0; i<mm.nboot; i++)
-            for (j=0; j<nRows; j++)
+              for (j=0; j<nRows; j++)
                 gsl_matrix_set(anova.bootID, i, j, bIDr(i, j)-1);
-    }  } 
+        }
+    } 
 
     // resampling test
     anova.resampTest();
 //    anova.display();
 
-
-    // Wrap the gsl objects with Rcpp 
-    NumericVector Vec_mul(anova.multstat, anova.multstat+nModels-1);
-    NumericVector Vec_Pm(anova.Pmultstat, anova.Pmultstat+nModels-1);
-    NumericVector Vec_df(anova.dfDiff, anova.dfDiff+nModels-1);
-    
-    RcppGSL::matrix<double> Mat_statj(anova.statj);
-    RcppGSL::matrix<double> Mat_Pstatj(anova.Pstatj);
-    
-    // Rcpp -> R
-    List rs = List::create(_["multstat" ] = Vec_mul,
-                           _["Pmultstat"] = Vec_Pm,
-                           _["dfDiff"   ] = Vec_df,
-                           _["statj"    ] = Mat_statj,
-                           _["Pstatj"   ] = Mat_Pstatj,
-                           _["nSamp"    ] = anova.nSamp);
+    // Wrap the gsl objects with Rcpp, then Rcpp -> R
+    List rs = List::create(Named("multstat" ) = NumericVector(anova.multstat, anova.multstat+nModels-1),
+                           Named("Pmultstat") = NumericVector(anova.Pmultstat, anova.Pmultstat+nModels-1),
+                           Named("dfDiff"   ) = NumericVector(anova.dfDiff, anova.dfDiff+nModels-1),
+                           Named("statj"    ) = RcppGSL::matrix<double>(anova.statj),
+                           Named("Pstatj"   ) = RcppGSL::matrix<double>(anova.Pstatj),
+                           Named("nSamp"    ) = anova.nSamp);
 
     // clear objects
     anova.releaseTest();
     
     return rs;
 }
-
