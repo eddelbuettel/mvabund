@@ -213,7 +213,8 @@ anova.manylm <- function(object, ..., resamp="perm.resid", test="F", p.uni="none
     }
 
     ######## call resampTest Rcpp #########
-    val <- .Call("RtoAnovaCpp", params, Y, X, XvarIn, bootID, PACKAGE="mvabund")
+    #val <- .Call("RtoAnovaCpp", params, Y, X, XvarIn, bootID, PACKAGE="mvabund")
+    val <- RtoAnovaCpp(params, Y, X, XvarIn, bootID)
 
     if (calc.rss) {
         RSS <- matrix(unlist(resdev),nrow=nModels,ncol=nVars,byrow=TRUE)
