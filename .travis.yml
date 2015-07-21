@@ -14,7 +14,8 @@ before_install:
 
 install:
   - ./travis-tool.sh install_aptget libgsl0-dev r-cran-rcpp r-cran-mass
-  - ./travis-tool.sh install_r RcppGSL tweedie statmod
+  - ./travis-tool.sh install_r tweedie statmod
+  - ./travis-tool.sh install_github eddelbuettel/rcppgsl
 
 script: 
   - ./travis-tool.sh run_tests
