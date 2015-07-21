@@ -14,9 +14,9 @@ extern "C"{
 
 // [[Rcpp::export]]
 Rcpp::List RtoAnovaCpp(Rcpp::List rparam,
-                       RcppGSL::matrix<double> Y, // SEXP Ysexp,
-                       RcppGSL::matrix<double> X, // SEXP Xsexp,
-                       RcppGSL::matrix<double> isXvarIn,
+                       RcppGSL::Matrix Y,
+                       RcppGSL::Matrix X,
+                       RcppGSL::Matrix isXvarIn,
                        SEXP bIDsexp) 
 {
     using namespace Rcpp;
@@ -82,8 +82,8 @@ Rcpp::List RtoAnovaCpp(Rcpp::List rparam,
     List rs = List::create(Named("multstat" ) = NumericVector(anova.multstat, anova.multstat+nModels-1),
                            Named("Pmultstat") = NumericVector(anova.Pmultstat, anova.Pmultstat+nModels-1),
                            Named("dfDiff"   ) = NumericVector(anova.dfDiff, anova.dfDiff+nModels-1),
-                           Named("statj"    ) = RcppGSL::matrix<double>(anova.statj),
-                           Named("Pstatj"   ) = RcppGSL::matrix<double>(anova.Pstatj),
+                           Named("statj"    ) = RcppGSL::Matrix(anova.statj),
+                           Named("Pstatj"   ) = RcppGSL::Matrix(anova.Pstatj),
                            Named("nSamp"    ) = anova.nSamp);
 
     // clear objects
