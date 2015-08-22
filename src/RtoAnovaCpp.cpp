@@ -3,7 +3,7 @@
 // Author: Yi Wang (yi dot wang at unsw dot edu dot au)
 // Last modified: 20-April-2010
 //
-// Rcpp/RcppGSL changes by Dirk Eddelbuettel, July 2015
+// Rcpp/RcppGSL changes by Dirk Eddelbuettel, July - August 2015
 
 
 #include <RcppGSL.h>
@@ -13,10 +13,10 @@ extern "C"{
 }
 
 // [[Rcpp::export]]
-Rcpp::List RtoAnovaCpp(Rcpp::List rparam,
-                       RcppGSL::Matrix Y,
-                       RcppGSL::Matrix X,
-                       RcppGSL::Matrix isXvarIn,
+Rcpp::List RtoAnovaCpp(const Rcpp::List & rparam,
+                       RcppGSL::Matrix & Y,
+                       RcppGSL::Matrix & X,
+                       RcppGSL::Matrix & isXvarIn,
                        SEXP bIDsexp) 
 {
     using namespace Rcpp;

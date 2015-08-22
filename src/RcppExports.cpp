@@ -7,15 +7,15 @@
 using namespace Rcpp;
 
 // RtoAnovaCpp
-Rcpp::List RtoAnovaCpp(Rcpp::List rparam, RcppGSL::matrix<double> Y, RcppGSL::matrix<double> X, RcppGSL::matrix<double> isXvarIn, SEXP bIDsexp);
+Rcpp::List RtoAnovaCpp(const Rcpp::List& rparam, RcppGSL::Matrix& Y, RcppGSL::Matrix& X, RcppGSL::Matrix& isXvarIn, SEXP bIDsexp);
 RcppExport SEXP mvabund_RtoAnovaCpp(SEXP rparamSEXP, SEXP YSEXP, SEXP XSEXP, SEXP isXvarInSEXP, SEXP bIDsexpSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
-    Rcpp::traits::input_parameter< Rcpp::List >::type rparam(rparamSEXP);
-    Rcpp::traits::input_parameter< RcppGSL::matrix<double> >::type Y(YSEXP);
-    Rcpp::traits::input_parameter< RcppGSL::matrix<double> >::type X(XSEXP);
-    Rcpp::traits::input_parameter< RcppGSL::matrix<double> >::type isXvarIn(isXvarInSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type rparam(rparamSEXP);
+    Rcpp::traits::input_parameter< RcppGSL::Matrix& >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< RcppGSL::Matrix& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< RcppGSL::Matrix& >::type isXvarIn(isXvarInSEXP);
     Rcpp::traits::input_parameter< SEXP >::type bIDsexp(bIDsexpSEXP);
     __result = Rcpp::wrap(RtoAnovaCpp(rparam, Y, X, isXvarIn, bIDsexp));
     return __result;
