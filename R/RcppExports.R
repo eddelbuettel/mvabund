@@ -5,3 +5,7 @@ RtoAnovaCpp <- function(rparam, Y, X, isXvarIn, bIDsexp) {
     .Call('mvabund_RtoAnovaCpp', PACKAGE = 'mvabund', rparam, Y, X, isXvarIn, bIDsexp)
 }
 
+RtoGlmAnova <- function(sparam, rparam, Y, X, O, isXvarIn, bIDsexp, Lambda) {
+    .Call('mvabund_RtoGlmAnova', PACKAGE = 'mvabund', sparam, rparam, Y, X, O, isXvarIn, bIDsexp, Lambda)
+}
+

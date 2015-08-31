@@ -1,20 +1,22 @@
 // Interface between R and glmtest.cpp (ANOVA) (Rcpp API >= 0.8.6)
 // Author: Yi Wang (yi dot wang at unsw dot edu dot au)
 // 20-April-2011
+//
+// Rcpp/RcppGSL changes by Dirk Eddelbuettel, July - August 2015
 
-#include <Rcpp.h>
+#include <RcppGSL.h>
 extern "C"{
 #include "resampTest.h"
 #include "time.h"
 }
 
-RcppExport SEXP RtoGlmAnova(SEXP mpar, SEXP tpar, SEXP Ysexp, SEXP Xsexp, SEXP Osexp, 
-                            SEXP INsexp, SEXP bIDsexp, SEXP LamSexp) 
+// [[Rcpp::export]]
+Rcpp::List RtoGlmAnova(const Rcpp::List & sparam, const Rcpp::List & rparam,
+                       RcppGSL::Matrix & Y, RcppGSL::Matrix & X, RcppGSL::Matrix & O, 
+                       RcppGSL::Matrix & isXvarIn, SEXP bIDsexp, RcppGSL::Vector & Lambda) 
 {
     using namespace Rcpp;
 
-    // Get parameters in params.
-    List sparam(mpar);
     // pass parameters
     reg_Method mm;
     mm.tol = as<double>(sparam["tol"]);
@@ -26,7 +28,6 @@ RcppExport SEXP RtoGlmAnova(SEXP mpar, SEXP tpar, SEXP Ysexp, SEXP Xsexp, SEXP O
     mm.maxiter2 = as<unsigned int>(sparam["maxiter2"]);   
     mm.warning = as<unsigned int>(sparam["warning"]);   
 
-    List rparam(tpar);
     // pass parameters
     mv_Method tm;	
     tm.nboot = as<unsigned int>(rparam["nboot"]);
@@ -41,17 +42,11 @@ RcppExport SEXP RtoGlmAnova(SEXP mpar, SEXP tpar, SEXP Ysexp, SEXP Xsexp, SEXP O
 //  for debug
 //    Rprintf("Input param arguments:\n tol=%g, mm.model=%d, nboot=%d, cor_type=%d, shrink_param=%g, test_type=%d, resamp=%d, n=%d, showtime=%d\n", mm.tol, mm.model, tm.nboot, tm.corr, tm.shrink_param, tm.test, tm.resamp, mm.n, tm.showtime);
 
-    NumericMatrix Yr(Ysexp);
-    NumericMatrix Xr(Xsexp);
-    NumericMatrix Or(Osexp);
-    IntegerMatrix INr(INsexp);
-    NumericVector lambda(LamSexp);
-
-    unsigned int nRows = Yr.nrow();
-    unsigned int nVars = Yr.ncol();
-    unsigned int nParam = Xr.ncol();
-    unsigned int nModels = INr.nrow();
-    unsigned int nLambda = lambda.size();
+    unsigned int nRows = Y.nrow();
+    unsigned int nVars = Y.ncol();
+    unsigned int nParam = X.ncol();
+    unsigned int nModels = isXvarIn.nrow();
+    unsigned int nLambda = Lambda.size();
     tm.nRows = nRows;
     tm.nVars = nVars;
     tm.nParam = nParam;
@@ -60,49 +55,11 @@ RcppExport SEXP RtoGlmAnova(SEXP mpar, SEXP tpar, SEXP Ysexp, SEXP Xsexp, SEXP O
 
     // Rcpp -> gsl
     unsigned int i, j, k;
-    tm.anova_lambda = gsl_vector_alloc(nLambda);
-    for (i=0; i<nLambda; i++) {
-        gsl_vector_set(tm.anova_lambda, i, lambda(i));
-//    	Rprintf("%.2f ", gsl_vector_get(tm.anova_lambda, i));
-    }
-//    Rprintf("\n");
-
-    gsl_matrix *X = gsl_matrix_alloc(nRows, nParam);        
-    gsl_matrix *Y = gsl_matrix_alloc(nRows, nVars);
-    gsl_matrix *O = gsl_matrix_alloc(nRows, nVars);
-    gsl_matrix *isXvarIn = gsl_matrix_alloc(nModels, nParam);
-//  Must be careful using std::copy for matrix. The following direct
-//  use is not right as row elements are copied column-wise.  
-//    std::copy( Yr.begin(), Yr.end(), Y->data );
-//    std::copy( Xr.begin(), Xr.end(), X->data );
-//    std::copy( INr.begin(), INr.end(), isXvarIn->data );
-
-    for (i=0; i<nRows; i++) {
-        for (j=0; j<nVars; j++) {
-            gsl_matrix_set(Y, i, j, Yr(i, j));
-            gsl_matrix_set(O, i, j, Or(i, j));
-//            Rprintf("%d ", (int)gsl_matrix_get(Y, i, j));
-        }
-//        Rprintf("\t");
-        
-        for (k=0; k<nParam; k++){
-            gsl_matrix_set(X, i, k, Xr(i, k));
-//            Rprintf("%.2f ", gsl_matrix_get(X, i, k));
-        }
-//        Rprintf("\n");    
-    }
-
-    for (i=0; i<nModels; i++) {
-        for (j=0; j<nParam; j++){
-            gsl_matrix_set(isXvarIn, i, j, INr(i, j));
-//            Rprintf("%d ", (int)gsl_matrix_get(isXvarIn, i, j));
-        }
-//        Rprintf("\n");
-    }
+    tm.anova_lambda = Lambda;
 
     // do stuff	
-  clock_t clk_start, clk_end;
-  clk_start = clock();
+    clock_t clk_start, clk_end;
+    clk_start = clock();
 
     // glmfit
     PoissonGlm pfit(&mm);
@@ -114,21 +71,22 @@ RcppExport SEXP RtoGlmAnova(SEXP mpar, SEXP tpar, SEXP Ysexp, SEXP Xsexp, SEXP O
 //    glmPtr[mtype]->display();
 
     GlmTest myTest(&tm);
+
     // Resampling indices
     if ( !Rf_isNumeric(bIDsexp) || !Rf_isMatrix(bIDsexp) ) {
 //       Rprintf("Calc bootID on the fly.\n");
-     }
+    }
     else {
         NumericMatrix bIDr(bIDsexp);
         tm.nboot = bIDr.nrow();
         myTest.bootID = gsl_matrix_alloc(tm.nboot,nRows);
         for (i=0; i<tm.nboot; i++) 
-        for (j=0; j<nRows; j++) {
-            gsl_matrix_set(myTest.bootID, i, j, bIDr(i, j));
-//            Rprintf("%d ", gsl_matrix_get(myTest.bootID, i, j));
-        }
-    }  
-
+          for (j=0; j<nRows; j++) {
+             gsl_matrix_set(myTest.bootID, i, j, bIDr(i, j));
+//              Rprintf("%d ", gsl_matrix_get(myTest.bootID, i, j));
+          }
+    }
+      
     // resampling test
     myTest.anova(glmPtr[mtype],isXvarIn);
 //    myTest.displayAnova();
@@ -156,10 +114,6 @@ RcppExport SEXP RtoGlmAnova(SEXP mpar, SEXP tpar, SEXP Ysexp, SEXP Xsexp, SEXP O
 	    Mat_Pstatj(i, j) = gsl_matrix_get(myTest.Panova, i, j+1);        
 	}    
     }
-//    double *uj = gsl_matrix_ptr(anova.statj, 0, 0);
-//    double *pj = gsl_matrix_ptr(anova.Pstatj, 0, 0);
-//    std::copy(uj, uj+nVars*(nModels-1), Mat_statj.begin());
-//    std::copy(pj, pj+nVars*(nModels-1), Mat_Pstatj.begin());
     
     unsigned int nSamp = myTest.nSamp;
 
@@ -176,11 +130,6 @@ RcppExport SEXP RtoGlmAnova(SEXP mpar, SEXP tpar, SEXP Ysexp, SEXP Xsexp, SEXP O
     // clear objects
     myTest.releaseTest();
     glmPtr[mtype]->releaseGlm();
-    gsl_matrix_free(Y);
-    gsl_matrix_free(X);
-    gsl_matrix_free(O);
-    gsl_matrix_free(isXvarIn);
-    gsl_vector_free(tm.anova_lambda);
 
     return rs;
 }
