@@ -28,6 +28,9 @@ jobs:
       - name: Dependencies
         run: ./run.sh install_deps
 
+      - name: System Dependencies
+        run: ./run.sh install_aptget libgsl-dev
+
       - name: Test
         run: ./run.sh run_tests
 
